@@ -54,22 +54,14 @@ export abstract class BaseAgent {
     try {
       const messages = this.buildMessages(message, context);
       
-      const chain = RunnableSequence.from([
-        {
-          messages: () => messages,
-        },
-        this.model,
-        new StringOutputParser(),
-      ]);
-
-      const response = await chain.invoke({});
+      const response = await this.model.invoke(messages);
       
       // Add to memory
       this.memory.push(new HumanMessage(message));
-      this.memory.push(new AIMessage(response));
+      this.memory.push(new AIMessage(response.content as string));
 
       return {
-        content: response,
+        content: response.content as string,
         metadata: { model: 'gemini-pro' },
       };
     } catch (error) {

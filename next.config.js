@@ -4,8 +4,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    serverExternalPackages: ['@prisma/client'],
   },
-  serverExternalPackages: ['@prisma/client'],
   images: {
     domains: ['localhost', 'vercel.app', 'railway.app'],
     formats: ['image/webp', 'image/avif'],
