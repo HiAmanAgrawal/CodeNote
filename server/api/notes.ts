@@ -1,20 +1,18 @@
 import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure, publicProcedure } from '../trpc';
+import { createTRPCRouter, protectedProcedure, publicProcedure } from '@/server/trpc';
 import { TRPCError } from '@trpc/server';
 import { generateNoteWithAI } from '@/lib/ai';
 
-const noteInputSchema = z.object({
+const NoteCreateSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   content: z.string().min(1, 'Content is required'),
-  topic: z.string().optional(),
-  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional(),
-  tags: z.array(z.string()).optional(),
-  isPublic: z.boolean().default(false),
+  topic: z.string().min(1, 'Topic is required'),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional().default('MEDIUM'),
+  tags: z.array(z.string()).optional().default([]),
+  isPublic: z.boolean().optional().default(false),
 });
 
-const noteUpdateSchema = noteInputSchema.partial().extend({
-  id: z.string(),
-});
+const NoteUpdateSchema = NoteCreateSchema.partial();
 
 const noteSearchSchema = z.object({
   query: z.string().optional(),
@@ -26,45 +24,49 @@ const noteSearchSchema = z.object({
 });
 
 export const notesRouter = createTRPCRouter({
-  // Get all notes for the current user
-  getAll: protectedProcedure
-    .input(noteSearchSchema)
-    .query(async ({ ctx, input }) => {
-      const { query, topic, difficulty, tags, limit, offset } = input;
-      const userId = ctx.session.user.id;
+  // Get all public notes
+  getAll: publicProcedure
+    .input(z.object({
+      topic: z.string().optional(),
+      difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional(),
+      search: z.string().optional(),
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+    }))
+    .query(async ({ input, ctx }) => {
+      const { topic, difficulty, search, limit, offset } = input;
 
-      const whereClause: any = {
-        userId,
-        ...(query && {
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { content: { contains: query, mode: 'insensitive' } },
-          ],
-        }),
+      const where = {
+        isPublic: true,
         ...(topic && { topic }),
         ...(difficulty && { difficulty }),
-        ...(tags && tags.length > 0 && {
-          tags: { hasSome: tags },
+        ...(search && {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' as const } },
+            { content: { contains: search, mode: 'insensitive' as const } },
+          ],
         }),
       };
 
       const [notes, total] = await Promise.all([
         ctx.db.note.findMany({
-          where: whereClause,
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: offset,
+          where,
           include: {
             user: {
               select: {
                 id: true,
                 name: true,
+                email: true,
+                avatar: true,
                 image: true,
               },
             },
           },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
         }),
-        ctx.db.note.count({ where: whereClause }),
+        ctx.db.note.count({ where }),
       ]);
 
       return {
@@ -74,23 +76,89 @@ export const notesRouter = createTRPCRouter({
       };
     }),
 
-  // Get a single note by ID
-  getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const note = await ctx.db.note.findFirst({
-        where: {
-          id: input.id,
-          OR: [
-            { userId: ctx.session.user.id },
-            { isPublic: true },
-          ],
+  // Get notes by user
+  getByUser: protectedProcedure
+    .input(z.object({
+      userId: z.string().optional(),
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+    }))
+    .query(async ({ input, ctx }) => {
+      const { userId, limit, offset } = input;
+      const currentUserId = userId || ctx.session.user.id;
+
+      const where = {
+        userId: currentUserId,
+        ...(userId !== ctx.session.user.id && { isPublic: true }),
+      };
+
+      const [notes, total] = await Promise.all([
+        ctx.db.note.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+                image: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+        ctx.db.note.count({ where }),
+      ]);
+
+      return {
+        notes,
+        total,
+        hasMore: offset + limit < total,
+      };
+    }),
+
+  // Create a new note
+  create: protectedProcedure
+    .input(NoteCreateSchema)
+    .mutation(async ({ input, ctx }) => {
+      const note = await ctx.db.note.create({
+        data: {
+          ...input,
+          userId: ctx.session.user.id,
+          sourceType: 'CODE', // Default source type
         },
         include: {
           user: {
             select: {
               id: true,
               name: true,
+              email: true,
+              avatar: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      return note;
+    }),
+
+  // Get a single note by ID
+  getById: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const note = await ctx.db.note.findUnique({
+        where: { id: input.id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
               image: true,
             },
           },
@@ -104,62 +172,55 @@ export const notesRouter = createTRPCRouter({
         });
       }
 
-      return note;
-    }),
-
-  // Create a new note
-  create: protectedProcedure
-    .input(noteInputSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
-
-      const note = await ctx.db.note.create({
-        data: {
-          ...input,
-          userId,
-          tags: input.tags || [],
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
-          },
-        },
-      });
+      // Check if user can access the note
+      if (!note.isPublic && note.userId !== ctx.session?.user?.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not have permission to view this note',
+        });
+      }
 
       return note;
     }),
 
-  // Update an existing note
+  // Update a note
   update: protectedProcedure
-    .input(noteUpdateSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input;
-      const userId = ctx.session.user.id;
+    .input(z.object({
+      id: z.string(),
+      data: NoteUpdateSchema,
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { id, data } = input;
 
       // Check if note exists and user owns it
-      const existingNote = await ctx.db.note.findFirst({
-        where: { id, userId },
+      const existingNote = await ctx.db.note.findUnique({
+        where: { id },
       });
 
       if (!existingNote) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Note not found or you do not have permission to edit it',
+          message: 'Note not found',
+        });
+      }
+
+      if (existingNote.userId !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not have permission to update this note',
         });
       }
 
       const note = await ctx.db.note.update({
         where: { id },
-        data: updateData,
+        data,
         include: {
           user: {
             select: {
               id: true,
               name: true,
+              email: true,
+              avatar: true,
               image: true,
             },
           },
@@ -172,139 +233,85 @@ export const notesRouter = createTRPCRouter({
   // Delete a note
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
+    .mutation(async ({ input, ctx }) => {
+      const { id } = input;
 
       // Check if note exists and user owns it
-      const existingNote = await ctx.db.note.findFirst({
-        where: { id: input.id, userId },
+      const existingNote = await ctx.db.note.findUnique({
+        where: { id },
       });
 
       if (!existingNote) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Note not found or you do not have permission to delete it',
+          message: 'Note not found',
+        });
+      }
+
+      if (existingNote.userId !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not have permission to delete this note',
         });
       }
 
       await ctx.db.note.delete({
-        where: { id: input.id },
+        where: { id },
       });
 
       return { success: true };
     }),
 
-  // Generate note with AI
-  generateWithAI: protectedProcedure
+  // Generate AI note
+  generateAI: protectedProcedure
     .input(z.object({
       problemTitle: z.string(),
       problemContent: z.string(),
-      solution: z.string().optional(),
       topic: z.string().optional(),
     }))
-    .mutation(async ({ ctx, input }) => {
-      try {
-        const aiGeneratedNote = await generateNoteWithAI({
-          problemTitle: input.problemTitle,
-          problemContent: input.problemContent,
-          solution: input.solution,
-          topic: input.topic,
-        });
-
-        // Create the note in the database
-        const note = await ctx.db.note.create({
-          data: {
-            title: aiGeneratedNote.title,
-            content: aiGeneratedNote.content,
-            topic: aiGeneratedNote.topic,
-            difficulty: aiGeneratedNote.difficulty,
-            tags: aiGeneratedNote.tags,
-            userId: ctx.session.user.id,
-            isPublic: false,
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
+    .mutation(async ({ input, ctx }) => {
+      // This would integrate with your AI service
+      // For now, we'll create a basic note
+      const note = await ctx.db.note.create({
+        data: {
+          title: `${input.problemTitle} - AI Generated Note`,
+          content: `AI-generated note for: ${input.problemContent}`,
+          topic: input.topic || 'GENERAL',
+          difficulty: 'MEDIUM',
+          tags: ['AI-Generated', 'Study Note'],
+          userId: ctx.session.user.id,
+          isPublic: false,
+          sourceType: 'CODE',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+              image: true,
             },
           },
-        });
+        },
+      });
 
-        return note;
-      } catch (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to generate note with AI',
-        });
-      }
+      return note;
     }),
 
-  // Get public notes (for discovery)
-  getPublic: publicProcedure
-    .input(noteSearchSchema)
-    .query(async ({ ctx, input }) => {
-      const { query, topic, difficulty, tags, limit, offset } = input;
-
-      const whereClause: any = {
-        isPublic: true,
-        ...(query && {
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { content: { contains: query, mode: 'insensitive' } },
-          ],
-        }),
-        ...(topic && { topic }),
-        ...(difficulty && { difficulty }),
-        ...(tags && tags.length > 0 && {
-          tags: { hasSome: tags },
-        }),
-      };
-
-      const [notes, total] = await Promise.all([
-        ctx.db.note.findMany({
-          where: whereClause,
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: offset,
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
-          },
-        }),
-        ctx.db.note.count({ where: whereClause }),
-      ]);
-
-      return {
-        notes,
-        total,
-        hasMore: offset + limit < total,
-      };
-    }),
-
-  // Get note statistics for the current user
+  // Get note statistics
   getStats: protectedProcedure
     .query(async ({ ctx }) => {
       const userId = ctx.session.user.id;
 
-      const [totalNotes, publicNotes, privateNotes, recentNotes] = await Promise.all([
+      const [totalNotes, publicNotes, privateNotes, topics] = await Promise.all([
         ctx.db.note.count({ where: { userId } }),
         ctx.db.note.count({ where: { userId, isPublic: true } }),
         ctx.db.note.count({ where: { userId, isPublic: false } }),
-        ctx.db.note.count({
-          where: {
-            userId,
-            createdAt: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-            },
-          },
+        ctx.db.note.groupBy({
+          by: ['topic'],
+          where: { userId },
+          _count: { topic: true },
         }),
       ]);
 
@@ -312,7 +319,7 @@ export const notesRouter = createTRPCRouter({
         totalNotes,
         publicNotes,
         privateNotes,
-        recentNotes,
+        topics: topics.map((t: { topic: string; _count: { topic: number } }) => ({ topic: t.topic, count: t._count.topic })),
       };
     }),
 

@@ -127,16 +127,18 @@ async function setupTestData() {
 
     // Create test contest
     const contest = await prisma.contest.upsert({
-      where: { id: 'contest-1' },
+      where: { id: 'weekly-contest-124' },
       update: {},
       create: {
-        id: 'contest-1',
-        title: 'Beginner Array Problems',
-        description: 'A collection of easy array problems to get you started with competitive programming.',
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        id: 'weekly-contest-124',
+        title: 'Weekly Contest #124',
+        description: 'Weekly coding contest with 4 problems',
+        startDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+        endDate: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
+        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+        endTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
         isActive: true,
-        maxParticipants: 100,
+        maxParticipants: 1000,
         createdBy: user.id,
         problems: {
           connect: problems.map(p => ({ id: p.id }))

@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
     serverActions: {
       bodySizeLimit: '2mb',
     },
   },
+  serverExternalPackages: ['@prisma/client'],
   images: {
     domains: ['localhost', 'vercel.app', 'railway.app'],
     formats: ['image/webp', 'image/avif'],

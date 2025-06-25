@@ -1,23 +1,12 @@
 import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure, publicProcedure } from '../trpc';
+import { createTRPCRouter, protectedProcedure, publicProcedure } from '@/server/trpc';
 import { TRPCError } from '@trpc/server';
 
-const userUpdateSchema = z.object({
-  name: z.string().min(1).optional(),
-  email: z.string().email().optional(),
-  bio: z.string().optional(),
-  avatar: z.string().url().optional(),
-  preferences: z.object({
-    theme: z.enum(['light', 'dark', 'system']).optional(),
-    language: z.string().optional(),
-    timezone: z.string().optional(),
-    notifications: z.object({
-      email: z.boolean().optional(),
-      push: z.boolean().optional(),
-      contests: z.boolean().optional(),
-      achievements: z.boolean().optional(),
-    }).optional(),
-  }).optional(),
+const UserUpdateSchema = z.object({
+  name: z.string().min(1, 'Name is required').optional(),
+  avatar: z.string().url('Invalid avatar URL').optional(),
+  image: z.string().url('Invalid image URL').optional(),
+  preferences: z.record(z.any()).optional(),
 });
 
 export const userRouter = createTRPCRouter({
@@ -28,25 +17,55 @@ export const userRouter = createTRPCRouter({
         where: { id: ctx.session.user.id },
         select: {
           id: true,
-          name: true,
           email: true,
+          name: true,
+          avatar: true,
           image: true,
-          bio: true,
           role: true,
+          preferences: true,
           createdAt: true,
           updatedAt: true,
-          preferences: true,
           _count: {
             select: {
               notes: true,
+              contests: true,
               submissions: true,
-              contests: {
-                where: {
-                  participants: {
-                    some: { id: ctx.session.user.id },
-                  },
-                },
+              contestParticipants: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+
+      return user;
+    }),
+
+  // Get user by ID (public profile)
+  getById: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const user = await ctx.db.user.findUnique({
+        where: { id: input.id },
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          image: true,
+          createdAt: true,
+          _count: {
+            select: {
+              notes: {
+                where: { isPublic: true },
               },
+              contests: true,
+              submissions: true,
+              contestParticipants: true,
             },
           },
         },
@@ -64,325 +83,282 @@ export const userRouter = createTRPCRouter({
 
   // Update user profile
   updateProfile: protectedProcedure
-    .input(userUpdateSchema)
-    .mutation(async ({ ctx, input }) => {
+    .input(UserUpdateSchema)
+    .mutation(async ({ input, ctx }) => {
       const user = await ctx.db.user.update({
         where: { id: ctx.session.user.id },
         data: input,
         select: {
           id: true,
-          name: true,
           email: true,
+          name: true,
+          avatar: true,
           image: true,
-          bio: true,
           role: true,
           preferences: true,
+          createdAt: true,
+          updatedAt: true,
         },
       });
 
       return user;
     }),
 
-  // Get user statistics
-  getStats: protectedProcedure
-    .query(async ({ ctx }) => {
-      const userId = ctx.session.user.id;
+  // Get user's notes
+  getNotes: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+    }))
+    .query(async ({ input, ctx }) => {
+      const { userId, limit, offset } = input;
 
-      const [
-        totalProblems,
-        solvedProblems,
-        totalNotes,
-        totalContests,
-        wonContests,
-        recentActivity,
-        streakDays,
-      ] = await Promise.all([
-        // Total problems attempted
-        ctx.db.submission.groupBy({
-          by: ['problemId'],
-          where: { userId },
-          _count: { id: true },
-        }),
-        // Problems solved successfully
-        ctx.db.submission.groupBy({
-          by: ['problemId'],
-          where: { userId, status: 'ACCEPTED' },
-          _count: { id: true },
-        }),
-        // Total notes created
-        ctx.db.note.count({ where: { userId } }),
-        // Total contests participated
-        ctx.db.contest.count({
-          where: {
-            participants: { some: { id: userId } },
-          },
-        }),
-        // Contests won (1st place)
-        ctx.db.submission.groupBy({
-          by: ['contestId'],
-          where: { userId, status: 'ACCEPTED' },
-          _count: { id: true },
-        }),
-        // Recent activity (last 30 days)
-        ctx.db.submission.count({
-          where: {
-            userId,
-            createdAt: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      const where = {
+        userId,
+        isPublic: true,
+      };
+
+      const [notes, total] = await Promise.all([
+        ctx.db.note.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                image: true,
+              },
             },
           },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
         }),
-        // Calculate streak (simplified)
-        ctx.db.submission.groupBy({
-          by: ['createdAt'],
-          where: {
-            userId,
-            createdAt: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            },
-          },
-          _count: { id: true },
-        }),
+        ctx.db.note.count({ where }),
       ]);
 
-      const successRate = totalProblems.length > 0 
-        ? (solvedProblems.length / totalProblems.length) * 100 
-        : 0;
-
       return {
-        totalProblems: totalProblems.length,
-        solvedProblems: solvedProblems.length,
-        successRate: Math.round(successRate),
-        totalNotes,
-        totalContests,
-        wonContests: wonContests.length,
-        recentActivity,
-        streakDays: streakDays.length,
+        notes,
+        total,
+        hasMore: offset + limit < total,
       };
     }),
 
-  // Get user activity feed
-  getActivity: protectedProcedure
+  // Get user's contests
+  getContests: publicProcedure
     .input(z.object({
-      limit: z.number().min(1).max(50).default(20),
+      userId: z.string(),
+      limit: z.number().min(1).max(100).default(20),
       offset: z.number().min(0).default(0),
     }))
-    .query(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
-      const { limit, offset } = input;
+    .query(async ({ input, ctx }) => {
+      const { userId, limit, offset } = input;
 
-      const activities = await ctx.db.submission.findMany({
-        where: { userId },
-        include: {
-          problem: {
-            select: {
-              title: true,
-              difficulty: true,
+      const [contests, total] = await Promise.all([
+        ctx.db.contest.findMany({
+          where: {
+            OR: [
+              { createdBy: userId },
+              {
+                participants: {
+                  some: { userId },
+                },
+              },
+            ],
+          },
+          include: {
+            creator: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                image: true,
+              },
+            },
+            participants: {
+              where: { userId },
+              select: {
+                id: true,
+                score: true,
+                rank: true,
+              },
+            },
+            _count: {
+              select: {
+                participants: true,
+                submissions: true,
+              },
             },
           },
-          contest: {
-            select: {
-              title: true,
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+        ctx.db.contest.count({
+          where: {
+            OR: [
+              { createdBy: userId },
+              {
+                participants: {
+                  some: { userId },
+                },
+              },
+            ],
+          },
+        }),
+      ]);
+
+      return {
+        contests,
+        total,
+        hasMore: offset + limit < total,
+      };
+    }),
+
+  // Get user's submissions
+  getSubmissions: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+    }))
+    .query(async ({ input, ctx }) => {
+      const { userId, limit, offset } = input;
+
+      const [submissions, total] = await Promise.all([
+        ctx.db.submission.findMany({
+          where: { userId },
+          include: {
+            problem: {
+              select: {
+                id: true,
+                title: true,
+                difficulty: true,
+                topic: true,
+              },
+            },
+            contest: {
+              select: {
+                id: true,
+                title: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-      });
+          orderBy: { submittedAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+        ctx.db.submission.count({ where: { userId } }),
+      ]);
 
-      return activities.map(activity => ({
-        id: activity.id,
-        type: 'submission',
-        title: `Submitted solution for ${activity.problem.title}`,
-        description: `Status: ${activity.status}`,
-        timestamp: activity.createdAt,
-        metadata: {
-          problemTitle: activity.problem.title,
-          difficulty: activity.problem.difficulty,
-          contestTitle: activity.contest?.title,
-          language: activity.language,
-        },
-      }));
+      return {
+        submissions,
+        total,
+        hasMore: offset + limit < total,
+      };
     }),
 
-  // Get user achievements
-  getAchievements: protectedProcedure
-    .query(async ({ ctx }) => {
-      const userId = ctx.session.user.id;
-
-      const achievements = [];
-
-      // Check for first problem solved
-      const firstProblem = await ctx.db.submission.findFirst({
-        where: { userId, status: 'ACCEPTED' },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      if (firstProblem) {
-        achievements.push({
-          id: 'first-problem',
-          title: 'First Problem Solved',
-          description: 'Solved your first coding problem',
-          icon: '🎯',
-          unlockedAt: firstProblem.createdAt,
-        });
-      }
-
-      // Check for 10 problems solved
-      const solvedProblems = await ctx.db.submission.groupBy({
-        by: ['problemId'],
-        where: { userId, status: 'ACCEPTED' },
-        _count: { id: true },
-      });
-
-      if (solvedProblems.length >= 10) {
-        achievements.push({
-          id: '10-problems',
-          title: 'Problem Solver',
-          description: 'Solved 10 different problems',
-          icon: '🏆',
-          unlockedAt: new Date(), // Simplified
-        });
-      }
-
-      // Check for contest winner
-      const contestWins = await ctx.db.submission.groupBy({
-        by: ['contestId'],
-        where: { userId, status: 'ACCEPTED' },
-        _count: { id: true },
-      });
-
-      if (contestWins.length > 0) {
-        achievements.push({
-          id: 'contest-winner',
-          title: 'Contest Winner',
-          description: 'Won your first contest',
-          icon: '🥇',
-          unlockedAt: new Date(), // Simplified
-        });
-      }
-
-      // Check for note creator
-      const notesCount = await ctx.db.note.count({ where: { userId } });
-      if (notesCount > 0) {
-        achievements.push({
-          id: 'note-creator',
-          title: 'Note Creator',
-          description: 'Created your first note',
-          icon: '📝',
-          unlockedAt: new Date(), // Simplified
-        });
-      }
-
-      return achievements;
-    }),
-
-  // Get public user profile
-  getPublicProfile: publicProcedure
+  // Get user statistics
+  getStats: publicProcedure
     .input(z.object({ userId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const user = await ctx.db.user.findUnique({
-        where: { id: input.userId },
+    .query(async ({ input, ctx }) => {
+      const { userId } = input;
+
+      const [
+        totalNotes,
+        publicNotes,
+        totalContests,
+        contestsWon,
+        totalSubmissions,
+        acceptedSubmissions,
+        averageScore,
+        recentActivity,
+      ] = await Promise.all([
+        ctx.db.note.count({ where: { userId } }),
+        ctx.db.note.count({ where: { userId, isPublic: true } }),
+        ctx.db.contestParticipant.count({ where: { userId } }),
+        ctx.db.contestParticipant.count({ 
+          where: { 
+            userId,
+            rank: 1,
+          },
+        }),
+        ctx.db.submission.count({ where: { userId } }),
+        ctx.db.submission.count({ 
+          where: { 
+            userId,
+            status: 'ACCEPTED',
+          },
+        }),
+        ctx.db.submission.aggregate({
+          where: { userId },
+          _avg: { score: true },
+        }),
+        ctx.db.submission.findMany({
+          where: { userId },
+          orderBy: { submittedAt: 'desc' },
+          take: 5,
+          include: {
+            problem: {
+              select: {
+                title: true,
+                difficulty: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      return {
+        totalNotes,
+        publicNotes,
+        totalContests,
+        contestsWon,
+        totalSubmissions,
+        acceptedSubmissions,
+        acceptanceRate: totalSubmissions > 0 ? (acceptedSubmissions / totalSubmissions) * 100 : 0,
+        averageScore: averageScore._avg.score || 0,
+        recentActivity,
+      };
+    }),
+
+  // Search users
+  search: publicProcedure
+    .input(z.object({
+      query: z.string().min(1, 'Search query is required'),
+      limit: z.number().min(1).max(50).default(10),
+    }))
+    .query(async ({ input, ctx }) => {
+      const { query, limit } = input;
+
+      const users = await ctx.db.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: query, mode: 'insensitive' as const } },
+            { email: { contains: query, mode: 'insensitive' as const } },
+          ],
+        },
         select: {
           id: true,
           name: true,
+          avatar: true,
           image: true,
-          bio: true,
           createdAt: true,
           _count: {
             select: {
               notes: {
                 where: { isPublic: true },
               },
+              contests: true,
               submissions: true,
             },
           },
         },
+        take: limit,
       });
 
-      if (!user) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'User not found',
-        });
-      }
-
-      // Get user's public notes
-      const publicNotes = await ctx.db.note.findMany({
-        where: {
-          userId: input.userId,
-          isPublic: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          title: true,
-          topic: true,
-          difficulty: true,
-          createdAt: true,
-        },
-      });
-
-      return {
-        ...user,
-        publicNotes,
-      };
-    }),
-
-  // Delete user account
-  deleteAccount: protectedProcedure
-    .mutation(async ({ ctx }) => {
-      const userId = ctx.session.user.id;
-
-      // Delete all user data
-      await ctx.db.$transaction([
-        ctx.db.submission.deleteMany({ where: { userId } }),
-        ctx.db.note.deleteMany({ where: { userId } }),
-        ctx.db.user.delete({ where: { id: userId } }),
-      ]);
-
-      return { success: true };
-    }),
-
-  // Get user preferences
-  getPreferences: protectedProcedure
-    .query(async ({ ctx }) => {
-      const user = await ctx.db.user.findUnique({
-        where: { id: ctx.session.user.id },
-        select: { preferences: true },
-      });
-
-      return user?.preferences || {};
-    }),
-
-  // Update user preferences
-  updatePreferences: protectedProcedure
-    .input(z.object({
-      preferences: z.object({
-        theme: z.enum(['light', 'dark', 'system']).optional(),
-        language: z.string().optional(),
-        timezone: z.string().optional(),
-        notifications: z.object({
-          email: z.boolean().optional(),
-          push: z.boolean().optional(),
-          contests: z.boolean().optional(),
-          achievements: z.boolean().optional(),
-        }).optional(),
-      }),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const user = await ctx.db.user.update({
-        where: { id: ctx.session.user.id },
-        data: {
-          preferences: {
-            ...input.preferences,
-          },
-        },
-        select: { preferences: true },
-      });
-
-      return user.preferences;
+      return users;
     }),
 });

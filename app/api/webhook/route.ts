@@ -1,49 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const headersList = headers();
-    const body = await request.json();
-
-    // Verify webhook signature (implement your verification logic)
+    const body = await request.text();
+    const headersList = await request.headers;
     const signature = headersList.get('x-webhook-signature');
-    
-    // Process different webhook types
-    const { type, data } = body;
 
-    switch (type) {
-      case 'contest.start':
-        // Handle contest start
-        console.log('Contest started:', data);
+    // Verify webhook signature
+    if (!signature || signature !== process.env.WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    // Process webhook data
+    const data = JSON.parse(body);
+    
+    // Handle different webhook events
+    switch (data.type) {
+      case 'code_execution_complete':
+        // Handle code execution completion
+        console.log('Code execution completed:', data);
         break;
-      
-      case 'contest.end':
-        // Handle contest end
-        console.log('Contest ended:', data);
+      case 'ai_analysis_complete':
+        // Handle AI analysis completion
+        console.log('AI analysis completed:', data);
         break;
-      
-      case 'submission.result':
-        // Handle submission result
-        console.log('Submission result:', data);
-        break;
-      
-      case 'user.achievement':
-        // Handle user achievement
-        console.log('User achievement:', data);
-        break;
-      
       default:
-        console.log('Unknown webhook type:', type);
+        console.log('Unknown webhook type:', data.type);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    return NextResponse.json(
-      { error: 'Webhook processing failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

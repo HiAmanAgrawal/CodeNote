@@ -76,6 +76,7 @@ export const aiAgentRouter = createTRPCRouter({
             tags: generatedNote.tags,
             userId: ctx.session.user.id,
             isPublic: false,
+            sourceType: 'CODE',
           },
           include: {
             user: {
@@ -108,14 +109,32 @@ export const aiAgentRouter = createTRPCRouter({
       try {
         const userId = ctx.session.user.id;
 
-        // Get user's solved problems
-        const solvedProblems = await ctx.db.submission.groupBy({
+        // Get user's current progress
+        const userProgress = await ctx.db.submission.groupBy({
           by: ['problemId'],
           where: { userId, status: 'ACCEPTED' },
-          _count: { id: true },
         });
 
-        const solvedProblemIds = solvedProblems.map(p => p.problemId);
+        // Get problem details for the solved problems
+        const solvedProblemIds = userProgress.map((p: { problemId: string }) => p.problemId);
+        const solvedProblems = await ctx.db.problem.findMany({
+          where: { id: { in: solvedProblemIds } },
+          select: {
+            id: true,
+            topic: true,
+            difficulty: true,
+          },
+        });
+
+        // Analyze user's strengths and weaknesses
+        const topicProgress = solvedProblems.reduce((acc: Record<string, { solved: number; total: number }>, problem: any) => {
+          const topic = problem.topic;
+          if (!acc[topic]) {
+            acc[topic] = { solved: 0, total: 0 };
+          }
+          acc[topic].solved++;
+          return acc;
+        }, {} as Record<string, { solved: number; total: number }>);
 
         // Get user's attempted but unsolved problems
         const attemptedProblems = await ctx.db.submission.groupBy({
@@ -128,7 +147,7 @@ export const aiAgentRouter = createTRPCRouter({
           _count: { id: true },
         });
 
-        const attemptedProblemIds = attemptedProblems.map(p => p.problemId);
+        const attemptedProblemIds = attemptedProblems.map((p: { problemId: string }) => p.problemId);
 
         // Build recommendation criteria
         const recommendationCriteria = {
@@ -145,7 +164,7 @@ export const aiAgentRouter = createTRPCRouter({
         // Get problem details from database
         const recommendedProblems = await ctx.db.problem.findMany({
           where: {
-            id: { in: recommendations.map(r => r.problemId) },
+            id: { in: recommendations.map((r: any) => r.problemId) },
           },
           select: {
             id: true,
@@ -162,10 +181,10 @@ export const aiAgentRouter = createTRPCRouter({
           },
         });
 
-        return recommendedProblems.map(problem => ({
+        return recommendedProblems.map((problem: any) => ({
           ...problem,
-          confidence: recommendations.find(r => r.problemId === problem.id)?.confidence || 0,
-          reason: recommendations.find(r => r.problemId === problem.id)?.reason || '',
+          confidence: recommendations.find((r: any) => r.problemId === problem.id)?.confidence || 0,
+          reason: recommendations.find((r: any) => r.problemId === problem.id)?.reason || '',
         }));
       } catch (error) {
         throw new TRPCError({
@@ -190,19 +209,22 @@ export const aiAgentRouter = createTRPCRouter({
         const userProgress = await ctx.db.submission.groupBy({
           by: ['problemId'],
           where: { userId, status: 'ACCEPTED' },
-          include: {
-            problem: {
-              select: {
-                topic: true,
-                difficulty: true,
-              },
-            },
+        });
+
+        // Get problem details for the solved problems
+        const solvedProblemIds = userProgress.map((p: { problemId: string }) => p.problemId);
+        const solvedProblems = await ctx.db.problem.findMany({
+          where: { id: { in: solvedProblemIds } },
+          select: {
+            id: true,
+            topic: true,
+            difficulty: true,
           },
         });
 
         // Analyze user's strengths and weaknesses
-        const topicProgress = userProgress.reduce((acc, submission) => {
-          const topic = submission.problem.topic;
+        const topicProgress = solvedProblems.reduce((acc: Record<string, { solved: number; total: number }>, problem: any) => {
+          const topic = problem.topic;
           if (!acc[topic]) {
             acc[topic] = { solved: 0, total: 0 };
           }
@@ -348,14 +370,6 @@ export const aiAgentRouter = createTRPCRouter({
         const currentProgress = await ctx.db.submission.groupBy({
           by: ['problemId'],
           where: { userId, status: 'ACCEPTED' },
-          include: {
-            problem: {
-              select: {
-                topic: true,
-                difficulty: true,
-              },
-            },
-          },
         });
 
         // Generate personalized study plan
