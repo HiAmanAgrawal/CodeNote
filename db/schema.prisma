@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?
+  avatar    String?
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  notes     Note[]
+  contests  Contest[]
+  submissions Submission[]
+  contestParticipants ContestParticipant[]
+
+  @@map("users")
+}
+
+model Note {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  topic       String   // e.g., "Arrays", "Strings", "Dynamic Programming"
+  difficulty  Difficulty
+  tags        String[] // Array of tags
+  source      String?  // URL or file path where note was generated from
+  sourceType  SourceType
+  complexity  Json?    // ComplexityAnalysis as JSON
+  userId      String
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
+model Problem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  difficulty  Difficulty
+  topic       String   // e.g., "Arrays", "Strings", "Dynamic Programming"
+  constraints String[] // Array of constraints
+  examples    Json?    // Array of example inputs/outputs
+  starterCode Json?    // Starter code for different languages
+  solutionCode Json?   // Solution code for different languages
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  contests    Contest[]
+  submissions Submission[]
+
+  @@map("problems")
+}
+
+model Contest {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(false)
+  maxParticipants Int?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  creator     User     @relation(fields: [createdBy], references: [id])
+  problems    Problem[]
+  participants ContestParticipant[]
+  submissions Submission[]
+
+  @@map("contests")
+}
+
+model ContestParticipant {
+  id        String   @id @default(cuid())
+  contestId String
+  userId    String
+  joinedAt  DateTime @default(now())
+  score     Int      @default(0)
+  rank      Int?
+
+  // Relations
+  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, userId])
+  @@map("contest_participants")
+}
+
+model Submission {
+  id        String   @id @default(cuid())
+  code      String
+  language  String   // e.g., "javascript", "python", "java"
+  status    SubmissionStatus
+  runtime   Int?     // Runtime in milliseconds
+  memory    Int?     // Memory usage in MB
+  score     Int?     // Points earned
+  userId    String
+  problemId String
+  contestId String?
+  submittedAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem   Problem  @relation(fields: [problemId], references: [id])
+  contest   Contest? @relation(fields: [contestId], references: [id])
+
+  @@map("submissions")
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum SourceType {
+  CODE
+  VIDEO
+  FILE
+  TEXT
+  VOICE
+  DIAGRAM
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SubmissionStatus {
+  PENDING
+  RUNNING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILATION_ERROR
+}

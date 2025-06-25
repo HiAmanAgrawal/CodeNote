@@ -1,4 +1,4 @@
-# 🧠 CodeNote – Your AI-Powered DSA Practice and Note-Taking Companion
+# CodeNote – Your AI-Powered DSA Practice and Note-Taking Companion
 
 ![CodeNote Banner](https://your-image-url.com/banner.png) <!-- Optional: Add banner illustration or GIF -->
 
