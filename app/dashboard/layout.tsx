@@ -8,9 +8,11 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
-      <Sidebar />
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -18,8 +20,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <DashboardNav />
         
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
+        <main className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="animate-in fade-in duration-300">
+            {children}
+          </div>
         </main>
       </div>
     </div>

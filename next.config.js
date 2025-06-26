@@ -34,6 +34,15 @@ const nextConfig = {
       },
     ];
   },
+  // Add WebSocket support
+  async rewrites() {
+    return [
+      {
+        source: '/socket.io/:path*',
+        destination: '/api/socket/:path*',
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

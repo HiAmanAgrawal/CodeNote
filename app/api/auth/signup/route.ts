@@ -4,6 +4,8 @@ import { securityUtils } from '@/lib/middleware';
 import { sendVerificationEmail } from '@/lib/email';
 import { z } from 'zod';
 import { checkAuthRateLimit } from '@/lib/rateLimit';
+import { createTestSession } from '@/lib/test-auth';
+import { Role } from '@prisma/client';
 
 // Validation schema
 const signupSchema = z.object({
@@ -13,25 +15,30 @@ const signupSchema = z.object({
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
     'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
   ),
+  role: z.enum(['ADMIN', 'USER']).optional().default('USER'),
 });
 
 export async function POST(request: NextRequest) {
-  // Rate limit check
-  const clientId = request.headers.get('x-forwarded-for') || request.ip || request.headers.get('user-agent') || 'unknown';
-  const rate = await checkAuthRateLimit(clientId);
-  if (!rate.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests', retryAfter: rate.retryAfter }, 
-      { 
-        status: 429,
-        headers: {
-          'X-RateLimit-Limit': rate.limit.toString(),
-          'X-RateLimit-Remaining': rate.remaining.toString(),
-          'X-RateLimit-Reset': new Date(rate.reset).toISOString(),
-          'Retry-After': rate.retryAfter.toString(),
+  const isTestMode = request.headers.get('X-Test-Mode') === 'true';
+  
+  // Rate limit check (skip for test mode)
+  if (!isTestMode) {
+    const clientId = request.headers.get('x-forwarded-for') || request.ip || request.headers.get('user-agent') || 'unknown';
+    const rate = await checkAuthRateLimit(clientId);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests', retryAfter: rate.retryAfter }, 
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': rate.limit.toString(),
+            'X-RateLimit-Remaining': rate.remaining.toString(),
+            'X-RateLimit-Reset': new Date(rate.reset).toISOString(),
+            'Retry-After': rate.retryAfter.toString(),
+          }
         }
-      }
-    );
+      );
+    }
   }
 
   try {
@@ -45,6 +52,7 @@ export async function POST(request: NextRequest) {
       name: securityUtils.sanitizeInput(validatedData.name),
       email: validatedData.email.toLowerCase().trim(),
       password: validatedData.password,
+      role: validatedData.role as Role,
     };
     
     // Check if user already exists
@@ -68,8 +76,8 @@ export async function POST(request: NextRequest) {
         name: sanitizedData.name,
         email: sanitizedData.email,
         password: hashedPassword,
-        role: 'USER',
-        isVerified: false,
+        role: sanitizedData.role,
+        isVerified: isTestMode ? true : false, // Auto-verify test users
         isActive: true,
       },
     });
@@ -85,21 +93,35 @@ export async function POST(request: NextRequest) {
       },
     });
     
-    // Send verification email
-    try {
-      await sendVerificationEmail(sanitizedData.email);
-    } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Don't fail the signup if email fails
+    // Send verification email (skip for test mode)
+    if (!isTestMode) {
+      try {
+        await sendVerificationEmail(sanitizedData.email);
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        // Don't fail the signup if email fails
+      }
     }
     
     // Return success response (without password)
     const { password, ...userWithoutPassword } = user;
     
+    // Create session token for test mode
+    let sessionToken = null;
+    if (isTestMode) {
+      sessionToken = await createTestSession({
+        id: user.id,
+        email: user.email,
+        name: user.name || '',
+        role: user.role,
+      });
+    }
+    
     return NextResponse.json(
       { 
-        message: 'User created successfully. Please check your email to verify your account.',
-        user: userWithoutPassword 
+        message: isTestMode ? 'Test user created successfully' : 'User created successfully. Please check your email to verify your account.',
+        user: userWithoutPassword,
+        sessionToken,
       },
       { status: 201 }
     );

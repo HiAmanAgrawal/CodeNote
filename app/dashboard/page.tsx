@@ -1,216 +1,213 @@
+'use client';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { StatsCard } from '@/components/dashboard/stats-card';
+import { ActivityFeed } from '@/components/dashboard/activity-feed';
+import { QuickActions } from '@/components/dashboard/quick-actions';
+import { ContestCard } from '@/components/dashboard/contest-card';
+import { AnimatedWrapper } from '@/components/ui/animated-wrapper';
 import { 
   Code, 
   BookOpen, 
   Trophy, 
   TrendingUp, 
-  Clock,
-  Target,
-  ArrowRight,
-  Plus
+  Target
 } from 'lucide-react';
-import Link from 'next/link';
+
+const stats = [
+  {
+    title: 'Problems Solved',
+    value: 24,
+    change: '+2 from last week',
+    icon: Code,
+    color: 'text-blue-500',
+    delay: 0.1
+  },
+  {
+    title: 'Notes Created',
+    value: 156,
+    change: '+12 from last week',
+    icon: BookOpen,
+    color: 'text-green-500',
+    delay: 0.2
+  },
+  {
+    title: 'Contests Won',
+    value: 8,
+    change: '+1 from last week',
+    icon: Trophy,
+    color: 'text-yellow-500',
+    delay: 0.3
+  },
+  {
+    title: 'Success Rate',
+    value: '87%',
+    change: '+3% from last week',
+    icon: TrendingUp,
+    color: 'text-purple-500',
+    delay: 0.4
+  }
+];
+
+const quickActions = [
+  {
+    title: 'Start Coding',
+    href: '/dashboard/editor',
+    icon: Code,
+    color: 'text-blue-500'
+  },
+  {
+    title: 'Create Note',
+    href: '/dashboard/notes',
+    icon: BookOpen,
+    color: 'text-green-500'
+  },
+  {
+    title: 'Join Contest',
+    href: '/dashboard/contests',
+    icon: Trophy,
+    color: 'text-yellow-500'
+  },
+  {
+    title: 'View Roadmap',
+    href: '/dashboard/roadmap',
+    icon: Target,
+    color: 'text-purple-500'
+  }
+];
+
+const activities = [
+  {
+    id: '1',
+    type: 'success' as const,
+    title: 'Solved "Two Sum"',
+    time: '2 hours ago',
+    badge: 'Easy',
+    badgeVariant: 'secondary' as const
+  },
+  {
+    id: '2',
+    type: 'info' as const,
+    title: 'Created note on Dynamic Programming',
+    time: '1 day ago',
+    badge: 'Note',
+    badgeVariant: 'outline' as const
+  },
+  {
+    id: '3',
+    type: 'warning' as const,
+    title: 'Won Weekly Contest #123',
+    time: '3 days ago',
+    badge: '1st Place',
+    badgeVariant: 'default' as const
+  }
+];
+
+const upcomingContests = [
+  {
+    id: '1',
+    title: 'Weekly Contest #124',
+    description: '4 problems • 90 minutes',
+    timeLeft: 'Starts in 2 hours',
+    problems: 4,
+    duration: '90 minutes',
+    color: 'text-yellow-500',
+    isUpcoming: false
+  },
+  {
+    id: '2',
+    title: 'Algorithm Master Challenge',
+    description: '6 problems • 3 hours',
+    timeLeft: 'Tomorrow at 10:00 AM',
+    problems: 6,
+    duration: '3 hours',
+    color: 'text-blue-500',
+    isUpcoming: true
+  }
+];
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
+    <AnimatedWrapper className="space-y-6 p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
+      <AnimatedWrapper
+        delay={0.1}
+      >
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          Dashboard
+        </h1>
+        <p className="text-muted-foreground mt-2">
           Welcome back! Here's what's happening with your DSA journey.
         </p>
-      </div>
+      </AnimatedWrapper>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Problems Solved</CardTitle>
-            <Code className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground">
-              +2 from last week
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Notes Created</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">156</div>
-            <p className="text-xs text-muted-foreground">
-              +12 from last week
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contests Won</CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">
-              +1 from last week
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">87%</div>
-            <p className="text-xs text-muted-foreground">
-              +3% from last week
-            </p>
-          </CardContent>
-        </Card>
+        {stats.map((stat, index) => (
+          <StatsCard key={stat.title} {...stat} />
+        ))}
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions and Recent Activity */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>
-              Jump into coding or create new content
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Button asChild className="h-20 flex-col">
-                <Link href="/dashboard/editor">
-                  <Code className="h-6 w-6 mb-2" />
-                  Start Coding
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="h-20 flex-col">
-                <Link href="/dashboard/notes">
-                  <BookOpen className="h-6 w-6 mb-2" />
-                  Create Note
-                </Link>
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Button asChild variant="outline" className="h-20 flex-col">
-                <Link href="/dashboard/contests">
-                  <Trophy className="h-6 w-6 mb-2" />
-                  Join Contest
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="h-20 flex-col">
-                <Link href="/dashboard/roadmap">
-                  <Target className="h-6 w-6 mb-2" />
-                  View Roadmap
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <AnimatedWrapper
+          delay={0.6}
+        >
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>
+                Jump into coding or create new content
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <QuickActions actions={quickActions} />
+            </CardContent>
+          </Card>
+        </AnimatedWrapper>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
-              Your latest coding sessions and achievements
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Solved "Two Sum"</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
-                </div>
-                <Badge variant="secondary">Easy</Badge>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Created note on Dynamic Programming</p>
-                  <p className="text-xs text-muted-foreground">1 day ago</p>
-                </div>
-                <Badge variant="outline">Note</Badge>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Won Weekly Contest #123</p>
-                  <p className="text-xs text-muted-foreground">3 days ago</p>
-                </div>
-                <Badge variant="default">1st Place</Badge>
-              </div>
-            </div>
-            
-            <Button variant="ghost" className="w-full">
-              View All Activity
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardContent>
-        </Card>
+        <AnimatedWrapper
+          delay={0.7}
+        >
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>
+                Your latest coding sessions and achievements
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ActivityFeed activities={activities} />
+            </CardContent>
+          </Card>
+        </AnimatedWrapper>
       </div>
 
       {/* Upcoming Contests */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Contests</CardTitle>
-          <CardDescription>
-            Don't miss these coding competitions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center space-x-4">
-                <Trophy className="h-8 w-8 text-yellow-500" />
-                <div>
-                  <h3 className="font-semibold">Weekly Contest #124</h3>
-                  <p className="text-sm text-muted-foreground">4 problems • 90 minutes</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium">Starts in 2 hours</p>
-                <Button size="sm" className="mt-2">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Join
-                </Button>
-              </div>
+      <AnimatedWrapper
+        delay={0.8}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Contests</CardTitle>
+            <CardDescription>
+              Don't miss these coding competitions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {upcomingContests.map((contest, index) => (
+                <ContestCard
+                  key={contest.id}
+                  {...contest}
+                  onJoin={() => console.log('Join contest:', contest.id)}
+                  onRemind={() => console.log('Remind contest:', contest.id)}
+                />
+              ))}
             </div>
-            
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center space-x-4">
-                <Trophy className="h-8 w-8 text-blue-500" />
-                <div>
-                  <h3 className="font-semibold">Algorithm Master Challenge</h3>
-                  <p className="text-sm text-muted-foreground">6 problems • 3 hours</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium">Tomorrow at 10:00 AM</p>
-                <Button size="sm" variant="outline" className="mt-2">
-                  <Clock className="mr-2 h-4 w-4" />
-                  Remind Me
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+      </AnimatedWrapper>
+    </AnimatedWrapper>
   );
 } 

@@ -11,6 +11,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { sendVerificationEmail } from '@/lib/email';
+import { Role } from '@prisma/client';
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -22,12 +23,12 @@ declare module 'next-auth' {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      role: string;
+      role: Role;
     } & DefaultSession['user'];
   }
 
   interface User {
-    role: string;
+    role: Role;
   }
 }
 
@@ -122,7 +123,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        session.user.role = token.role as Role;
       }
       return session;
     },
@@ -152,7 +153,7 @@ export const authOptions: NextAuthOptions = {
                 name: user.name!,
                 image: user.image!,
                 isVerified: true,
-                role: 'USER',
+                role: Role.USER,
               },
             });
           }
@@ -205,7 +206,7 @@ export const getServerAuthSession = (ctx: {
 };
 
 // Role-based access control helper
-export const requireRole = (allowedRoles: string[]) => {
+export const requireRole = (allowedRoles: Role[]) => {
   return (req: any, res: any, next: any) => {
     const userRole = req.session?.user?.role;
     if (!userRole || !allowedRoles.includes(userRole)) {
@@ -216,7 +217,7 @@ export const requireRole = (allowedRoles: string[]) => {
 };
 
 // Admin-only middleware
-export const requireAdmin = requireRole(['ADMIN']);
+export const requireAdmin = requireRole([Role.ADMIN]);
 
 // User or admin middleware
 export const requireAuth = requireRole(['USER', 'ADMIN']);

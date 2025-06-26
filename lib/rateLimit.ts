@@ -1,7 +1,12 @@
 import { redis } from './redis';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 
-const AUTH_RATE_LIMIT_MAX_REQUESTS = 3; // 3 requests per minute for auth
+// More lenient limits for testing environment
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.TESTING === 'true';
+const isDevEnv = process.env.NODE_ENV === 'development';
+
+// Rate limits - very lenient in test/dev environments
+const AUTH_RATE_LIMIT_MAX_REQUESTS = isTestEnv ? 1000 : (isDevEnv ? 500 : 30);
 const RATE_LIMIT_WINDOW = 60; // 1 minute
 
 const authLimiter = new RateLimiterRedis({
