@@ -5,8 +5,8 @@ import { TRPCError } from '@trpc/server';
 const ContestCreateSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  startDate: z.date(),
-  endDate: z.date(),
+  startTime: z.date(),
+  endTime: z.date(),
   maxParticipants: z.number().min(1).optional(),
   problemIds: z.array(z.string()).optional().default([]),
 });
@@ -32,26 +32,16 @@ export const contestsRouter = createTRPCRouter({
         ctx.db.contest.findMany({
           where,
           include: {
-            creator: {
+            user: {
               select: {
                 id: true,
                 name: true,
                 email: true,
-                avatar: true,
                 image: true,
-              },
-            },
-            problems: {
-              select: {
-                id: true,
-                title: true,
-                difficulty: true,
-                topic: true,
               },
             },
             _count: {
               select: {
-                participants: true,
                 submissions: true,
               },
             },
@@ -77,12 +67,11 @@ export const contestsRouter = createTRPCRouter({
       const contest = await ctx.db.contest.findUnique({
         where: { id: input.id },
         include: {
-          creator: {
+          user: {
             select: {
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },
@@ -106,7 +95,6 @@ export const contestsRouter = createTRPCRouter({
                   id: true,
                   name: true,
                   email: true,
-                  avatar: true,
                   image: true,
                 },
               },
@@ -115,7 +103,6 @@ export const contestsRouter = createTRPCRouter({
           },
           _count: {
             select: {
-              participants: true,
               submissions: true,
             },
           },
@@ -141,20 +128,18 @@ export const contestsRouter = createTRPCRouter({
       const contest = await ctx.db.contest.create({
         data: {
           ...contestData,
-          createdBy: ctx.session.user.id,
-          startTime: contestData.startDate,
-          endTime: contestData.endDate,
+          description: contestData.description ?? '',
+          userId: ctx.session.user.id,
           problems: {
             connect: problemIds.map(id => ({ id })),
           },
         },
         include: {
-          creator: {
+          user: {
             select: {
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },
@@ -193,7 +178,7 @@ export const contestsRouter = createTRPCRouter({
         });
       }
 
-      if (existingContest.createdBy !== ctx.session.user.id) {
+      if (existingContest.userId !== ctx.session.user.id) {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: 'You do not have permission to update this contest',
@@ -206,8 +191,6 @@ export const contestsRouter = createTRPCRouter({
         where: { id },
         data: {
           ...contestData,
-          ...(contestData.startDate && { startTime: contestData.startDate }),
-          ...(contestData.endDate && { endTime: contestData.endDate }),
           ...(problemIds && {
             problems: {
               set: problemIds.map(id => ({ id })),
@@ -215,12 +198,11 @@ export const contestsRouter = createTRPCRouter({
           }),
         },
         include: {
-          creator: {
+          user: {
             select: {
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },
@@ -256,7 +238,7 @@ export const contestsRouter = createTRPCRouter({
         });
       }
 
-      if (existingContest.createdBy !== ctx.session.user.id) {
+      if (existingContest.userId !== ctx.session.user.id) {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: 'You do not have permission to delete this contest',
@@ -297,12 +279,10 @@ export const contestsRouter = createTRPCRouter({
       }
 
       // Check if user is already a participant
-      const existingParticipant = await ctx.db.contestParticipant.findUnique({
+      const existingParticipant = await ctx.db.contestParticipant.findFirst({
         where: {
-          contestId_userId: {
-            contestId,
-            userId,
-          },
+          contestId,
+          userId,
         },
       });
 
@@ -339,7 +319,6 @@ export const contestsRouter = createTRPCRouter({
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },
@@ -356,12 +335,10 @@ export const contestsRouter = createTRPCRouter({
       const { contestId } = input;
       const userId = ctx.session.user.id;
 
-      const participant = await ctx.db.contestParticipant.findUnique({
+      const participant = await ctx.db.contestParticipant.findFirst({
         where: {
-          contestId_userId: {
-            contestId,
-            userId,
-          },
+          contestId,
+          userId,
         },
       });
 
@@ -372,12 +349,10 @@ export const contestsRouter = createTRPCRouter({
         });
       }
 
-      await ctx.db.contestParticipant.delete({
+      await ctx.db.contestParticipant.deleteMany({
         where: {
-          contestId_userId: {
-            contestId,
-            userId,
-          },
+          contestId,
+          userId,
         },
       });
 
@@ -398,7 +373,7 @@ export const contestsRouter = createTRPCRouter({
         ctx.db.contest.findMany({
           where: {
             OR: [
-              { createdBy: userId },
+              { userId },
               {
                 participants: {
                   some: { userId },
@@ -407,12 +382,11 @@ export const contestsRouter = createTRPCRouter({
             ],
           },
           include: {
-            creator: {
+            user: {
               select: {
                 id: true,
                 name: true,
                 email: true,
-                avatar: true,
                 image: true,
               },
             },
@@ -426,7 +400,6 @@ export const contestsRouter = createTRPCRouter({
             },
             _count: {
               select: {
-                participants: true,
                 submissions: true,
               },
             },
@@ -438,7 +411,7 @@ export const contestsRouter = createTRPCRouter({
         ctx.db.contest.count({
           where: {
             OR: [
-              { createdBy: userId },
+              { userId },
               {
                 participants: {
                   some: { userId },
@@ -470,7 +443,6 @@ export const contestsRouter = createTRPCRouter({
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },

@@ -76,7 +76,6 @@ export const aiAgentRouter = createTRPCRouter({
             tags: generatedNote.tags,
             userId: ctx.session.user.id,
             isPublic: false,
-            sourceType: 'CODE',
           },
           include: {
             user: {

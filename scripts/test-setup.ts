@@ -103,7 +103,6 @@ async function setupTestData() {
           tags: ['hash-map', 'arrays', 'two-pointer'],
           userId: user.id,
           isPublic: true,
-          sourceType: 'CODE',
         }
       }),
       prisma.note.upsert({
@@ -118,7 +117,6 @@ async function setupTestData() {
           tags: ['stack', 'string', 'matching'],
           userId: user.id,
           isPublic: true,
-          sourceType: 'CODE',
         }
       })
     ]);
@@ -133,16 +131,11 @@ async function setupTestData() {
         id: 'weekly-contest-124',
         title: 'Weekly Contest #124',
         description: 'Weekly coding contest with 4 problems',
-        startDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-        endDate: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
         startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
         endTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
         isActive: true,
         maxParticipants: 1000,
-        createdBy: user.id,
-        problems: {
-          connect: problems.map(p => ({ id: p.id }))
-        }
+        userId: user.id,
       }
     });
 

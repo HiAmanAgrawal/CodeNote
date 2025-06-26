@@ -19,7 +19,6 @@ export const userRouter = createTRPCRouter({
           id: true,
           email: true,
           name: true,
-          avatar: true,
           image: true,
           role: true,
           preferences: true,
@@ -55,7 +54,6 @@ export const userRouter = createTRPCRouter({
         select: {
           id: true,
           name: true,
-          avatar: true,
           image: true,
           createdAt: true,
           _count: {
@@ -92,7 +90,6 @@ export const userRouter = createTRPCRouter({
           id: true,
           email: true,
           name: true,
-          avatar: true,
           image: true,
           role: true,
           preferences: true,
@@ -127,7 +124,6 @@ export const userRouter = createTRPCRouter({
               select: {
                 id: true,
                 name: true,
-                avatar: true,
                 image: true,
               },
             },
@@ -160,7 +156,7 @@ export const userRouter = createTRPCRouter({
         ctx.db.contest.findMany({
           where: {
             OR: [
-              { createdBy: userId },
+              { userId },
               {
                 participants: {
                   some: { userId },
@@ -169,11 +165,10 @@ export const userRouter = createTRPCRouter({
             ],
           },
           include: {
-            creator: {
+            user: {
               select: {
                 id: true,
                 name: true,
-                avatar: true,
                 image: true,
               },
             },
@@ -199,7 +194,7 @@ export const userRouter = createTRPCRouter({
         ctx.db.contest.count({
           where: {
             OR: [
-              { createdBy: userId },
+              { userId },
               {
                 participants: {
                   some: { userId },
@@ -343,7 +338,6 @@ export const userRouter = createTRPCRouter({
         select: {
           id: true,
           name: true,
-          avatar: true,
           image: true,
           createdAt: true,
           _count: {

@@ -57,7 +57,6 @@ export const notesRouter = createTRPCRouter({
                 id: true,
                 name: true,
                 email: true,
-                avatar: true,
                 image: true,
               },
             },
@@ -101,7 +100,6 @@ export const notesRouter = createTRPCRouter({
                 id: true,
                 name: true,
                 email: true,
-                avatar: true,
                 image: true,
               },
             },
@@ -128,7 +126,6 @@ export const notesRouter = createTRPCRouter({
         data: {
           ...input,
           userId: ctx.session.user.id,
-          sourceType: 'CODE', // Default source type
         },
         include: {
           user: {
@@ -136,7 +133,6 @@ export const notesRouter = createTRPCRouter({
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },
@@ -158,7 +154,6 @@ export const notesRouter = createTRPCRouter({
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },
@@ -220,7 +215,6 @@ export const notesRouter = createTRPCRouter({
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },
@@ -281,7 +275,6 @@ export const notesRouter = createTRPCRouter({
           tags: ['AI-Generated', 'Study Note'],
           userId: ctx.session.user.id,
           isPublic: false,
-          sourceType: 'CODE',
         },
         include: {
           user: {
@@ -289,7 +282,6 @@ export const notesRouter = createTRPCRouter({
               id: true,
               name: true,
               email: true,
-              avatar: true,
               image: true,
             },
           },

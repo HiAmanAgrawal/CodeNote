@@ -18,7 +18,6 @@ async function main() {
       email: 'john@example.com',
       name: 'John Doe',
       password: hashedPassword,
-      avatar: 'https://avatars.githubusercontent.com/u/1?v=4',
       image: 'https://avatars.githubusercontent.com/u/1?v=4',
       role: 'USER',
     },
@@ -31,7 +30,6 @@ async function main() {
       email: 'jane@example.com',
       name: 'Jane Smith',
       password: hashedPassword,
-      avatar: 'https://avatars.githubusercontent.com/u/2?v=4',
       image: 'https://avatars.githubusercontent.com/u/2?v=4',
       role: 'USER',
     },
@@ -139,20 +137,11 @@ async function main() {
       id: 'weekly-contest-124',
       title: 'Weekly Contest #124',
       description: 'Weekly coding contest with 4 problems',
-      startDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-      endDate: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
       startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
       endTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
       isActive: true,
       maxParticipants: 1000,
-      createdBy: user1.id,
-      problems: {
-        connect: [
-          { id: problem1.id },
-          { id: problem2.id },
-          { id: problem3.id }
-        ]
-      }
+      userId: user1.id,
     },
   });
 
@@ -163,19 +152,11 @@ async function main() {
       id: 'algorithm-master',
       title: 'Algorithm Master Challenge',
       description: 'Advanced algorithm competition',
-      startDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
-      endDate: new Date(Date.now() + 48 * 60 * 60 * 1000), // Day after tomorrow
       startTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
       endTime: new Date(Date.now() + 48 * 60 * 60 * 1000), // Day after tomorrow
       isActive: false,
       maxParticipants: 500,
-      createdBy: user2.id,
-      problems: {
-        connect: [
-          { id: problem2.id },
-          { id: problem3.id }
-        ]
-      }
+      userId: user2.id,
     },
   });
 
@@ -190,7 +171,6 @@ async function main() {
       topic: 'ARRAYS',
       difficulty: 'EASY',
       tags: ['hash-map', 'arrays', 'two-pointer'],
-      sourceType: 'CODE',
       userId: user1.id,
       isPublic: true,
     },
@@ -206,7 +186,6 @@ async function main() {
       topic: 'STACK',
       difficulty: 'EASY',
       tags: ['stack', 'string', 'matching'],
-      sourceType: 'CODE',
       userId: user2.id,
       isPublic: false,
     },
@@ -221,16 +200,10 @@ async function main() {
       code: 'function twoSum(nums, target) {\n    const map = new Map();\n    for (let i = 0; i < nums.length; i++) {\n        const complement = target - nums[i];\n        if (map.has(complement)) {\n            return [map.get(complement), i];\n        }\n        map.set(nums[i], i);\n    }\n    return [];\n}',
       language: 'javascript',
       status: 'ACCEPTED',
-      runtime: 80,
-      memory: 42,
       score: 100,
       userId: user1.id,
-      problemId: problem1.id,
       contestId: contest1.id,
-      testCases: [
-        { input: '[2,7,11,15]', target: 9, output: '[0,1]' },
-        { input: '[3,2,4]', target: 6, output: '[1,2]' }
-      ],
+      problemId: problem1.id,
     },
   });
 
@@ -242,43 +215,10 @@ async function main() {
       code: 'def two_sum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            return [seen[complement], i]\n        seen[num] = i\n    return []',
       language: 'python',
       status: 'ACCEPTED',
-      runtime: 45,
-      memory: 15,
       score: 100,
       userId: user2.id,
+      contestId: contest1.id,
       problemId: problem1.id,
-      contestId: contest1.id,
-      testCases: [
-        { input: '[2,7,11,15]', target: 9, output: '[0,1]' },
-        { input: '[3,2,4]', target: 6, output: '[1,2]' }
-      ],
-    },
-  });
-
-  // Create contest participants
-  await prisma.contestParticipant.upsert({
-    where: { id: 'participant-1' },
-    update: {},
-    create: {
-      id: 'participant-1',
-      contestId: contest1.id,
-      userId: user1.id,
-      score: 200,
-      rank: 1,
-      name: user1.name,
-    },
-  });
-
-  await prisma.contestParticipant.upsert({
-    where: { id: 'participant-2' },
-    update: {},
-    create: {
-      id: 'participant-2',
-      contestId: contest1.id,
-      userId: user2.id,
-      score: 100,
-      rank: 2,
-      name: user2.name,
     },
   });
 
