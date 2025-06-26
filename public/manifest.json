@@ -1,7 +1,7 @@
 {
   "name": "CodeNote - AI-Powered DSA Practice",
   "short_name": "CodeNote",
-  "description": "Transform your data structures and algorithms prep into a personalized, interactive journey with AI-powered optimization and smart note-taking.",
+  "description": "Transform your DSA preparation with AI-powered learning",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -9,24 +9,25 @@
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
-  "categories": ["education", "productivity", "utilities"],
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/banner.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/banner.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [

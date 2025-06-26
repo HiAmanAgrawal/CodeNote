@@ -2,27 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react';
 
-interface ServiceWorkerRegistration {
-  installing: ServiceWorker | null;
-  waiting: ServiceWorker | null;
-  active: ServiceWorker | null;
-  scope: string;
-  updateViaCache: RequestCache;
-  onupdatefound: ((this: ServiceWorkerRegistration, ev: Event) => any) | null;
-  oncontrollerchange: ((this: ServiceWorkerRegistration, ev: Event) => any) | null;
-  onstatechange: ((this: ServiceWorkerRegistration, ev: Event) => any) | null;
-  update(): Promise<void>;
-  unregister(): Promise<boolean>;
-  getNotifications(filter?: GetNotificationOptions): Promise<Notification[]>;
-  showNotification(title: string, options?: NotificationOptions): Promise<void>;
-  closeNotification(tag: string): Promise<void>;
-  getPushSubscription(): Promise<PushSubscription | null>;
-  pushManager: PushManager;
-  sync: SyncManager;
-  periodicSync: PeriodicSyncManager;
-  backgroundFetch: BackgroundFetchManager;
-  navigationPreload: NavigationPreloadManager;
-  cookies: CookieStoreManager;
+// Add type declarations for missing APIs
+declare global {
+  interface ServiceWorkerRegistration {
+    sync: any;
+    periodicSync: any;
+    backgroundFetch: any;
+    cookies: any;
+  }
 }
 
 interface ServiceWorkerHook {
@@ -130,12 +117,12 @@ export function useServiceWorker(): ServiceWorkerHook {
     }
   }, [registration]);
 
-  // Auto-install on mount
-  useEffect(() => {
-    if (isSupported && !isInstalled) {
-      install();
-    }
-  }, [isSupported, isInstalled, install]);
+  // Auto-install on mount (disabled for now)
+  // useEffect(() => {
+  //   if (isSupported && !isInstalled) {
+  //     install();
+  //   }
+  // }, [isSupported, isInstalled, install]);
 
   return {
     isSupported,
