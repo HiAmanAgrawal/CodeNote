@@ -33,7 +33,7 @@ export function Sidebar() {
       initial={{ x: -100, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="w-64 bg-card/50 backdrop-blur-sm border-r border-border flex flex-col"
+      className="w-64 min-h-screen bg-card/50 backdrop-blur-sm border-r border-border flex flex-col"
     >
       {/* Logo */}
       <motion.div 
