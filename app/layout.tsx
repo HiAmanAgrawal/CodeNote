@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from '@/components/providers';
-import { Toaster } from '@/components/ui/toaster';
+import { SimpleToastProvider } from '@/components/ui/simple-toast';
+import { performanceMonitor } from '@/lib/performance';
 import '@/styles/globals.css';
+import '@/styles/tokens.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -71,6 +73,21 @@ export const metadata: Metadata = {
   verification: {
     google: 'your-google-verification-code',
   },
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+  ],
 };
 
 export default function RootLayout({
@@ -81,12 +98,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          <div className="min-h-screen bg-background font-sans antialiased">
-            {children}
-            <Toaster />
-          </div>
-        </Providers>
+        <SimpleToastProvider>
+          <Providers>
+            <div className="min-h-screen bg-background font-sans antialiased">
+              {children}
+            </div>
+          </Providers>
+        </SimpleToastProvider>
       </body>
     </html>
   );

@@ -12,6 +12,8 @@ export interface AgentConfig {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
+  apiKey?: string;
+  maxOutputTokens?: number;
 }
 
 export interface AgentResponse {
@@ -31,9 +33,10 @@ export abstract class BaseAgent {
     }
 
     this.model = new ChatGoogleGenerativeAI({
-      modelName: config.modelName || 'gemini-pro',
+      model: config.modelName || 'gemini-pro',
+      apiKey: config.apiKey,
+      maxOutputTokens: config.maxOutputTokens || 2048,
       temperature: config.temperature || 0.7,
-      maxOutputTokens: config.maxTokens || 2048,
     });
 
     this.systemPrompt = config.systemPrompt || this.getDefaultSystemPrompt();
@@ -51,23 +54,15 @@ export abstract class BaseAgent {
     try {
       const messages = this.buildMessages(message, context);
       
-      const chain = RunnableSequence.from([
-        {
-          messages: () => messages,
-        },
-        this.model,
-        new StringOutputParser(),
-      ]);
-
-      const response = await chain.invoke({});
+      const response = await this.model.invoke(messages);
       
       // Add to memory
       this.memory.push(new HumanMessage(message));
-      this.memory.push(new AIMessage(response));
+      this.memory.push(new AIMessage(response.content as string));
 
       return {
-        content: response,
-        metadata: { model: this.model.modelName },
+        content: response.content as string,
+        metadata: { model: 'gemini-pro' },
       };
     } catch (error) {
       console.error('Error processing message:', error);

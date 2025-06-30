@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    serverExternalPackages: ['@prisma/client'],
   },
   images: {
     domains: ['localhost', 'vercel.app', 'railway.app'],
@@ -31,6 +31,15 @@ const nextConfig = {
           { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
           { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
         ],
+      },
+    ];
+  },
+  // Add WebSocket support
+  async rewrites() {
+    return [
+      {
+        source: '/socket.io/:path*',
+        destination: '/api/socket/:path*',
       },
     ];
   },
