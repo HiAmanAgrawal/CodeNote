@@ -84,7 +84,7 @@ export default function RoadmapPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Learning Roadmap</h1>
